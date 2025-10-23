@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Budget Tracker Pro</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f4f7fa;
+    --text: #333;
+    --primary: #2b7a78;
+    --card: #fff;
+    --accent: #3aa59a;
+  }
+  [data-theme="dark"] {
+    --bg: #121212;
+    --text: #f0f0f0;
+    --primary: #4fd1c5;
+    --card: #1e1e1e;
+    --accent: #38b2ac;
+  }
+
+  body {
+    font-family: 'Poppins', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 20px;
+    transition: background 0.5s, color 0.5s;
+    position: relative;
+    overflow-x: hidden;
+  }
+  h1 {
+    text-align: center;
+    color: var(--primary);
+    margin-bottom: 10px;
+    animation: fadeIn 1s ease;
+  }
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Theme toggle smaller button */
+  #theme-toggle {
+    font-size: 14px;
+    padding: 6px 10px;
+    min-width: auto;
+    cursor: pointer;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    transition: background 0.3s ease;
+  }
+  #theme-toggle:hover {
+    background: var(--accent);
+  }
+
+  /* Calculator toggle button smaller */
+  #calc-toggle {
+    font-size: 14px;
+    padding: 6px 10px;
+    min-width: auto;
+    cursor: pointer;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    transition: background 0.3s ease;
+  }
+  #calc-toggle:hover {
+    background: var(--accent);
+  }
+
+  .container {
+    max-width: 950px;
+    background: var(--card);
+    margin: 0 auto;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    transition: margin-right 0.3s ease;
+  }
+  form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  input, select, button {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    flex: 1;
+  }
+  button {
+    background: var(--primary);
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.2s, background 0.3s;
+  }
+  button:hover {
+    transform: scale(1.05);
+    background: var(--accent);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th, td {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+  }
+  tr:hover {
+    background: rgba(43,122,120,0.08);
+    transform: scale(1.01);
+  }
+  th {
+    background: rgba(43,122,120,0.1);
+  }
+  .summary, .budget-goal {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(43,122,120,0.1);
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 15px;
+  }
+  #budget-progress {
+    width: 100%;
+    height: 15px;
+    border-radius: 8px;
+    background: #ddd;
+    margin-top: 10px;
+  }
+  #budget-progress-bar {
+    height: 15px;
+    background: var(--accent);
+    border-radius: 8px;
+    width: 0%;
+    transition: width 0.5s ease-in-out;
+  }
+  canvas {
+    margin-top: 30px;
+  }
+  .actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+  }
+
+  /* Calculator fixed right top side */
+  .calc-container {
+    position: fixed;
+    top: 60px; /* Below top-bar */
+    right: 20px;
+    width: 280px;
+    background: var(--card);
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    display: none;
+    z-index: 999;
+  }
+  .calc-display {
+    width: 100%;
+    font-size: 1.5em;
+    text-align: right;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .calc-buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  /* Smaller calculator buttons */
+  .calc-btn {
+    padding: 8px 12px;
+    font-size: 14px;
+    border: none;
+    border-radius: 8px;
+    background: var(--primary);
+    color: #fff;
+    cursor: pointer;
+    transition: 0.3s;
+    user-select: none;
+  }
+  .calc-btn:hover {
+    background: var(--accent);
+    transform: scale(1.05);
+  }
+  .calc-btn.equal {
+    grid-column: span 4;
+    background: #38b000;
+  }
+  @keyframes fadeIn {
+    from {opacity: 0; transform: translateY(-10px);}
+    to {opacity: 1; transform: translateY(0);}
+  }
+</style>
+</head>
+
+<body data-theme="light">
+  <div class="top-bar">
+    <button id="calc-toggle">🧮 Calculator</button>
+    <button id="theme-toggle">🌙 Dark Mode</button>
+  </div>
+
+  <h1>💰 Budget Tracker Pro</h1>
+
+  <div class="container" id="main-container">
+    <!-- Budget Tracker -->
+    <form id="transaction-form">
+      <input type="text" id="description" placeholder="Description" required />
+      <input type="number" id="amount" placeholder="Amount" required />
+      <select id="type">
+        <option value="income">Income</option>
+        <option value="expense">Expense</option>
+      </select>
+      <select id="category">
+        <option value="General">General</option>
+        <option value="Food">Food</option>
+        <option value="Bills">Bills</option>
+        <option value="Travel">Travel</option>
+        <option value="Shopping">Shopping</option>
+      </select>
+      <button type="submit">Add</button>
+    </form>
+
+    <div class="actions">
+      <input type="text" id="search" placeholder="🔍 Search transactions..." />
+      <button id="export-btn">⬇️ Export CSV</button>
+      <button id="export-pdf-btn">⬇️ Export PDF</button>
+    </div>
+
+    <table id="transaction-table">
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th>Amount</th>
+          <th>Type</th>
+          <th>Category</th>
+          <th>Date</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="summary">
+      <div><strong>Total Income:</strong> $<span id="total-income">0</span></div>
+      <div><strong>Total Expense:</strong> $<span id="total-expense">0</span></div>
+      <div><strong>Balance:</strong> $<span id="balance">0</span></div>
+    </div>
+
+    <div class="budget-goal">
+      <span>
+        <strong>Monthly Budget Goal:</strong>
+        $<input type="number" id="budget-goal" value="1000" style="width: 80px" />
+      </span>
+      <span><strong>Spent:</strong> $<span id="spent">0</span></span>
+    </div>
+    <div id="budget-progress">
+      <div id="budget-progress-bar"></div>
+    </div>
+
+    <canvas id="chart" width="400" height="200"></canvas>
+  </div>
+
+  <!-- Calculator -->
+  <div class="calc-container" id="calculator">
+    <h3>🧮 Basic Calculator</h3>
+    <input type="text" id="calc-display" class="calc-display" readonly />
+    <div class="calc-buttons">
+      <button class="calc-btn">7</button>
+      <button class="calc-btn">8</button>
+      <button class="calc-btn">9</button>
+      <button class="calc-btn">/</button>
+
+      <button class="calc-btn">4</button>
+      <button class="calc-btn">5</button>
+      <button class="calc-btn">6</button>
+      <button class="calc-btn">*</button>
+
+      <button class="calc-btn">1</button>
+      <button class="calc-btn">2</button>
+      <button class="calc-btn">3</button>
+      <button class="calc-btn">-</button>
+
+      <button class="calc-btn">0</button>
+      <button class="calc-btn">.</button>
+      <button class="calc-btn">C</button>
+      <button class="calc-btn">+</button>
+
+      <button class="calc-btn equal">=</button>
+    </div>
+  </div>
+
+<script>
+  // ======= Budget Tracker Logic =======
+  const form = document.getElementById('transaction-form');
+  const tableBody = document.querySelector('#transaction-table tbody');
+  const totalIncomeEl = document.getElementById('total-income');
+  const totalExpenseEl = document.getElementById('total-expense');
+  const balanceEl = document.getElementById('balance');
+  const searchInput = document.getElementById('search');
+  const budgetGoalInput = document.getElementById('budget-goal');
+  const spentEl = document.getElementById('spent');
+  const progressBar = document.getElementById('budget-progress-bar');
+  const themeToggle = document.getElementById('theme-toggle');
+  const exportBtn = document.getElementById('export-btn');
+  const exportPdfBtn = document.getElementById('export-pdf-btn');
+  const calcToggle = document.getElementById('calc-toggle');
+  const calculator = document.getElementById('calculator');
+  const calcDisplay = document.getElementById('calc-display');
+  const calcButtons = document.querySelectorAll('.calc-btn');
+
+  let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+  let chart;
+
+  function saveData() {
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+  }
+
+  function renderTransactions(filter = '') {
+    tableBody.innerHTML = '';
+    let income = 0,
+      expense = 0;
+
+    transactions
+      .filter((t) => t.description.toLowerCase().includes(filter.toLowerCase()))
+      .forEach((t, i) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td contenteditable="true" onblur="editTransaction(${i}, 'description', this.textContent)">${t.description}</td>
+          <td contenteditable="true" onblur="editTransaction(${i}, 'amount', this.textContent)">${t.amount.toFixed(2)}</td>
+          <td>${t.type}</td>
+          <td>${t.category}</td>
+          <td>${new Date(t.date).toLocaleDateString()}</td>
+          <td><button onclick="deleteTransaction(${i})">❌</button></td>
+        `;
+        tableBody.appendChild(row);
+
+        if (t.type === 'income') income += t.amount;
+        else expense += t.amount;
+      });
+
+    totalIncomeEl.textContent = income.toFixed(2);
+    totalExpenseEl.textContent = expense.toFixed(2);
+    balanceEl.textContent = (income - expense).toFixed(2);
+    updateBudget(expense);
+    updateChart();
+  }
+
+  function updateBudget(spent) {
+    const goal = parseFloat(budgetGoalInput.value) || 1000;
+    spentEl.textContent = spent.toFixed(2);
+    let percent = (spent / goal) * 100;
+    percent = percent > 100 ? 100 : percent;
+    progressBar.style.width = percent + '%';
+    if (percent > 100) {
+      progressBar.style.background = 'red';
+    } else {
+      progressBar.style.background = 'var(--accent)';
+    }
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const description = document.getElementById('description').value.trim();
+    const amount = parseFloat(document.getElementById('amount').value);
+    const type = document.getElementById('type').value;
+    const category = document.getElementById('category').value;
+
+    if (!description || isNaN(amount) || amount <= 0) {
+      alert('Please enter valid description and amount');
+      return;
+    }
+
+    transactions.push({
+      description,
+      amount,
+      type,
+      category,
+      date: new Date().toISOString(),
+    });
+    saveData();
+    renderTransactions(searchInput.value);
+    form.reset();
+  });
+
+  function deleteTransaction(index) {
+    if (confirm('Are you sure you want to delete this transaction?')) {
+      transactions.splice(index, 1);
+      saveData();
+      renderTransactions(searchInput.value);
+    }
+  }
+
+  function editTransaction(index, field, value) {
+    if (field === 'amount') {
+      let num = parseFloat(value);
+      if (isNaN(num) || num <= 0) {
+        alert('Invalid amount');
+        renderTransactions(searchInput.value);
+        return;
+      }
+      transactions[index][field] = num;
+    } else {
+      transactions[index][field] = value.trim() || transactions[index][field];
+    }
+    saveData();
+    renderTransactions(searchInput.value);
+  }
+
+  searchInput.addEventListener('input', () => {
+    renderTransactions(searchInput.value);
+  });
+
+  budgetGoalInput.addEventListener('input', () => {
+    let expense = transactions.reduce((sum, t) => (t.type === 'expense' ? sum + t.amount : sum), 0);
+    updateBudget(expense);
+  });
+
+  // Chart.js for categories pie chart
+  function updateChart() {
+    const ctx = document.getElementById('chart').getContext('2d');
+    const categories = {};
+    transactions.forEach((t) => {
+      if (t.type === 'expense') {
+        categories[t.category] = (categories[t.category] || 0) + t.amount;
+      }
+    });
+    const data = {
+      labels: Object.keys(categories),
+      datasets: [{
+        data: Object.values(categories),
+        backgroundColor: [
+          '#FF6384',
+          '#36A2EB',
+          '#FFCE56',
+          '#4BC0C0',
+          '#9966FF',
+          '#FF9F40'
+        ],
+      }]
+    };
+    if (chart) {
+      chart.data = data;
+      chart.update();
+    } else {
+      chart = new Chart(ctx, {
+        type: 'pie',
+        data: data,
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'bottom',
+            },
+          }
+        }
+      });
+    }
+  }
+
+  // Export CSV
+  exportBtn.addEventListener('click', () => {
+    if (transactions.length === 0) {
+      alert('No transactions to export');
+      return;
+    }
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += 'Description,Amount,Type,Category,Date\n';
+    transactions.forEach(t => {
+      csvContent += `${t.description},${t.amount},${t.type},${t.category},${new Date(t.date).toLocaleDateString()}\n`;
+    });
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', 'transactions.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+
+  // Export PDF using jsPDF
+  exportPdfBtn.addEventListener('click', () => {
+    if (transactions.length === 0) {
+      alert('No transactions to export');
+      return;
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFontSize(18);
+    doc.text('Transaction History', 14, 22);
+    doc.setFontSize(12);
+    const rows = transactions.map(t => [
+      t.description,
+      t.amount.toFixed(2),
+      t.type,
+      t.category,
+      new Date(t.date).toLocaleDateString()
+    ]);
+    doc.autoTable({
+      head: [['Description', 'Amount', 'Type', 'Category', 'Date']],
+      body: rows,
+      startY: 30,
+      styles: { fontSize: 10 }
+    });
+    doc.save('transactions.pdf');
+  });
+
+  // Dark Mode Toggle
+  themeToggle.addEventListener('click', () => {
+    const body = document.body;
+    if (body.getAttribute('data-theme') === 'dark') {
+      body.setAttribute('data-theme', 'light');
+      themeToggle.textContent = '🌙 Dark Mode';
+    } else {
+      body.setAttribute('data-theme', 'dark');
+      themeToggle.textContent = '☀️ Light Mode';
+    }
+  });
+
+  // Calculator toggle
+  calcToggle.addEventListener('click', () => {
+    if (calculator.style.display === 'block') {
+      calculator.style.display = 'none';
+    } else {
+      calculator.style.display = 'block';
+    }
+  });
+
+  // Calculator logic
+  let calcExpression = '';
+
+  calcButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.textContent;
+      if (val === 'C') {
+        calcExpression = '';
+        calcDisplay.value = '';
+      } else if (val === '=') {
+        try {
+          // eslint-disable-next-line no-eval
+          const result = eval(calcExpression);
+          calcDisplay.value = result;
+          calcExpression = result.toString();
+        } catch {
+          calcDisplay.value = 'Error';
+          calcExpression = '';
+        }
+      } else {
+        calcExpression += val;
+        calcDisplay.value = calcExpression;
+      }
+    });
+  });
+
+  // On load render
+  renderTransactions();
+</script>
+<!-- jsPDF autoTable plugin (for table in PDF) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+<script>
+  // (पूर्वीच दिलेला Budget Tracker, Calculator, Theme Toggle, CSV export इत्यादी कोड याच ठिकाणी आहे)
+
+  // ... jsPDF export handler मध्ये थोडी सुधारणा:
+  exportPdfBtn.addEventListener('click', () => {
+    if (transactions.length === 0) {
+      alert('No transactions to export');
+      return;
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFontSize(18);
+    doc.text('Transaction History', 14, 22);
+    doc.setFontSize(12);
+
+    // transactions data for table
+    const rows = transactions.map(t => [
+      t.description,
+      t.amount.toFixed(2),
+      t.type,
+      t.category,
+      new Date(t.date).toLocaleDateString()
+    ]);
+
+    doc.autoTable({
+      head: [['Description', 'Amount', 'Type', 'Category', 'Date']],
+      body: rows,
+      startY: 30,
+      styles: { fontSize: 10 }
+    });
+    doc.save('transactions.pdf');
+  });
+</script>
+</body>
+</html>
